@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Solar Panel Calculator (TNB Malaysia)</title>
+  <link rel="manifest" href="manifest.json" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: auto;
+      padding: 20px;
+    }
+    input, button {
+      padding: 10px;
+      font-size: 16px;
+      margin: 5px 0;
+      width: 100%;
+    }
+    .result {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Solar Panel Calculator (Malaysia)</h1>
+  <p>Enter your TNB final bill amount (MYR):</p>
+  <input type="number" id="billAmount" placeholder="e.g. 1000" />
+  <button onclick="calculatePanels()">Calculate</button>
+  <div class="result" id="result"></div>
+
+  <script>
+    const tiers = [
+      { limit: 200, rate: 0.218 },
+      { limit: 100, rate: 0.334 },
+      { limit: 300, rate: 0.516 },
+      { limit: 300, rate: 0.546 },
+      { limit: Infinity, rate: 0.571 },
+    ];
+    const panelOutput = 0.62 * 3.4 * 30; // ~63.24 kWh/panel/month
+    const round2 = num => Math.round(num * 100) / 100;
+
+    function calculateBill(kWh) {
+      let energyCharge = 0, temp = kWh;
+      for (let tier of tiers) {
+        let usage = Math.min(temp, tier.limit);
+        energyCharge += usage * tier.rate;
+        temp -= usage;
+        if (temp <= 0) break;
+      }
+      energyCharge = round2(energyCharge);
+
+      const kwtbb = kWh > 300 ? round2(energyCharge * 0.016) : 0;
+
+      let icpt = 0;
+      if (kWh < 600) icpt = round2(kWh * -0.02);
+      else if (kWh >= 1500) icpt = round2(kWh * 0.1);
+
+      let sst = 0;
+      if (kWh >= 600) {
+        let sstTier4 = Math.min(kWh - 600, 300) * 0.546;
+        let sstTier5 = kWh > 900 ? (kWh - 900) * 0.571 : 0;
+        sst = round2((sstTier4 + sstTier5) * 0.08);
+        if (kWh >= 1500) {
+          sst += round2((kWh - 600) * 0.1 * 0.08);
+        }
+      }
+
+      const total = round2(energyCharge + kwtbb + icpt + sst);
+      return { kWh, energyCharge, kwtbb, icpt, sst, total };
+    }
+
+    function calculatePanels() {
+      const billAmount = parseFloat(document.getElementById("billAmount").value);
+      if (isNaN(billAmount) || billAmount <= 0) {
+        document.getElementById("result").innerHTML = "Please enter a valid bill amount.";
+        return;
+      }
+
+      // Find the closest kWh for the entered bill amount
+      let closestEstimate = null, minDiff = Infinity;
+      for (let kWh = 0; kWh <= 3000; kWh++) {
+        let estimate = calculateBill(kWh);
+        let diff = Math.abs(estimate.total - billAmount);
+        if (diff < minDiff) {
+          minDiff = diff;
+          closestEstimate = estimate;
+        }
+      }
+
+      if (!closestEstimate || minDiff > 5) {
+        document.getElementById("result").innerHTML = "Unable to estimate kWh for the given bill amount.";
+        return;
+      }
+
+      const totalEstimate = closestEstimate;
+      const adjustedKWh = Math.max(totalEstimate.kWh - 200, 0);
+      const solarPanels = Math.floor(adjustedKWh / panelOutput);
+      const solarGen = solarPanels * panelOutput;
+
+      // Calculate balance usage (original usage - solar generation)
+      const balanceKWh = Math.max(totalEstimate.kWh - solarGen, 0);
+      const balanceEstimate = calculateBill(balanceKWh);
+
+      const savings = round2(totalEstimate.total - balanceEstimate.total);
+
+      const output = `
+        <strong>Total Usage:</strong> ${totalEstimate.kWh} kWh<br>
+        <strong>Energy Charge:</strong> RM ${totalEstimate.energyCharge.toFixed(2)}<br>
+        <strong>KWTBB:</strong> RM ${totalEstimate.kwtbb.toFixed(2)}<br>
+        <strong>ICPT:</strong> RM ${totalEstimate.icpt.toFixed(2)}<br>
+        <strong>SST:</strong> RM ${totalEstimate.sst.toFixed(2)}<br>
+        <strong>Total Bill:</strong> RM ${totalEstimate.total.toFixed(2)}<br><br>
+
+        <strong>Solar Panels to Install:</strong> ${solarPanels}<br>
+        <strong>Monthly Estimated Solar Generation:</strong> ${solarGen.toFixed(0)} kWh<br>
+        <strong>Balance Usage (Total Usage - Solar Generation):</strong> ${balanceKWh.toFixed(2)} kWh<br><br>
+
+        <h3>Balance Bill</h3>
+        <strong>Energy Charge:</strong> RM ${balanceEstimate.energyCharge.toFixed(2)}<br>
+        <strong>KWTBB:</strong> RM ${balanceEstimate.kwtbb.toFixed(2)}<br>
+        <strong>ICPT:</strong> RM ${balanceEstimate.icpt.toFixed(2)}<br>
+        <strong>SST:</strong> RM ${balanceEstimate.sst.toFixed(2)}<br>
+        <strong>Total Balance Bill:</strong> RM ${balanceEstimate.total.toFixed(2)}<br>
+        <strong>Bill Savings:</strong> RM ${savings.toFixed(2)}
+      `;
+      document.getElementById("result").innerHTML = output;
+    }
+  </script>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js')
+          .then(reg => console.log('Service Worker registered:', reg))
+          .catch(err => console.log('Service Worker registration failed:', err));
+      });
+    }
+  </script>
+</body>
+</html>
