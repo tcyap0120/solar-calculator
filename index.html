@@ -171,6 +171,23 @@
         <strong><b>Bill Savings:</b></strong> RM ${savings.toFixed(2)}
       `;
 
+     // Calculate total savings over 10 years
+      let year1 = savings * 12;
+      let year2 = year1 * 0.99;
+      let totalSavings = year1 + year2;
+      let prevYear = year2;
+      for (let year = 3; year <= 10; year++) {
+        let currentYear = prevYear * 0.996;
+        totalSavings += currentYear;
+        prevYear = currentYear;
+      }
+      totalSavings = round2(totalSavings);
+
+      output += `
+        <br><h3><u>Estimated Total Savings over 10 Years</u></h3>
+        <strong>Total 10-Year Savings:</strong> RM ${totalSavings.toFixed(2)}
+      `;
+
       document.getElementById("result").innerHTML = output;
     }
   </script>
