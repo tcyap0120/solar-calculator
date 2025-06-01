@@ -25,7 +25,7 @@
 </head>
 <body>
   <h1>Solar Panel Calculator (by TC Yap)</h1>
-<img src="asternlogo.png" alt="Astern Logo" width="200" />
+  <img src="asternlogo.png" alt="Astern Logo" width="200" />
   <p>Enter your TNB final bill amount (MYR):</p>
   <input type="number" id="billAmount" placeholder="e.g. 400" />
   <button onclick="calculatePanels()">Calculate</button>
@@ -42,7 +42,6 @@
     const panelOutput = 0.62 * 3.4 * 30; // ~63.24 kWh/panel/month
     const round2 = num => Math.round(num * 100) / 100;
 
-    // Calculate energy charge only (without ICPT, SST, KWTBB)
     function calculateEnergyCharge(kWh) {
       let energyCharge = 0, temp = kWh;
       for (let tier of tiers) {
@@ -54,16 +53,12 @@
       return round2(energyCharge);
     }
 
-    // Full bill calculation including ICPT, SST, KWTBB based on kWh usage
     function calculateBill(kWh) {
       const energyCharge = calculateEnergyCharge(kWh);
-
       const kwtbb = kWh > 300 ? round2(energyCharge * 0.016) : 0;
-
       let icpt = 0;
       if (kWh < 600) icpt = round2(kWh * -0.02);
       else if (kWh > 1500) icpt = round2(kWh * 0.1);
-
       let sst = 0;
       if (kWh >= 600) {
         let sstTier4 = Math.min(kWh - 600, 300) * 0.546;
@@ -73,7 +68,6 @@
           sst += round2((kWh - 600) * 0.1 * 0.08);
         }
       }
-
       const total = round2(energyCharge + kwtbb + icpt + sst);
       return { kWh, energyCharge, kwtbb, icpt, sst, total };
     }
@@ -85,7 +79,6 @@
         return;
       }
 
-      // Find closest kWh usage that matches the input billAmount
       let closestEstimate = null, minDiff = Infinity;
       for (let kWh = 0; kWh <= 5000; kWh++) {
         let estimate = calculateBill(kWh);
@@ -102,37 +95,17 @@
       }
 
       const totalEstimate = closestEstimate;
-
-      // Adjusted kWh usage for solar panels (subtract 200 kWh baseline)
       const adjustedKWh = Math.max(totalEstimate.kWh - 200, 0);
-
-      // Calculate number of solar panels needed, minimum 6 panels
       const solarPanels = Math.max(6, Math.floor(adjustedKWh / panelOutput));
-
-      // Estimated solar generation (rounded)
       const solarGen = Math.round(solarPanels * panelOutput);
-
-      // Balance usage after solar generation
       const balanceKWh = Math.max(totalEstimate.kWh - solarGen, 0);
-
-      // 70% of original total usage kWh (for ICPT, SST, KWTBB)
       const seventyPctKWh = Math.round(totalEstimate.kWh * 0.7);
-
-      // Calculate energy charge on balance usage kWh
       const energyChargeBalance = calculateEnergyCharge(balanceKWh);
-
-      // Calculate energy charge on 70% original usage for KWTBB calculation
       const energyCharge70 = calculateEnergyCharge(seventyPctKWh);
-
-      // KWTBB based on energy charge at 70% original usage
       const kwtbb70 = seventyPctKWh > 300 ? round2(energyCharge70 * 0.016) : 0;
-
-      // ICPT on 70% original usage
       let icpt70 = 0;
       if (seventyPctKWh < 600) icpt70 = round2(seventyPctKWh * -0.02);
       else if (seventyPctKWh > 1500) icpt70 = round2(seventyPctKWh * 0.1);
-
-      // SST on 70% original usage
       let sst70 = 0;
       if (seventyPctKWh >= 600) {
         let sstTier4 = Math.min(seventyPctKWh - 600, 300) * 0.546;
@@ -142,14 +115,10 @@
           sst70 += round2((seventyPctKWh - 600) * 0.1 * 0.08);
         }
       }
-
-      // Calculate total balance bill using energy charge on balance usage + KWTBB, ICPT, SST on 70% original usage
       const totalBalanceBill = round2(energyChargeBalance + kwtbb70 + icpt70 + sst70);
-
-      // Calculate savings
       const savings = round2(totalEstimate.total - totalBalanceBill);
 
-      const output = `
+      let output = `
         <strong>Total Usage:</strong> ${totalEstimate.kWh} kWh<br>
         <strong>Energy Charge:</strong> RM ${totalEstimate.energyCharge.toFixed(2)}<br>
         <strong>KWTBB:</strong> RM ${totalEstimate.kwtbb.toFixed(2)}<br>
@@ -167,7 +136,6 @@
         <strong>ICPT:</strong> RM ${icpt70.toFixed(2)}<br>
         <strong>SST:</strong> RM ${sst70.toFixed(2)}<br>
         <strong>Total Balance Bill:</strong> RM ${totalBalanceBill.toFixed(2)}<br>
-
         <strong><b>Bill Savings:</b></strong> RM ${savings.toFixed(2)}
       `;
 
