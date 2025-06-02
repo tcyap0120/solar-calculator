@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Solar Panel Calculator (TNB Malaysia)</title>
+  <title>Solar Panel Calculator (by TCYap)</title>
   <link rel="manifest" href="manifest.json" />
   <style>
     body {
@@ -21,6 +21,11 @@
     .result {
       margin-top: 20px;
     }
+    #savingsChart {
+      margin-top: 40px;
+      max-width: 100%;
+      height: 300px;
+    }
   </style>
 </head>
 <body>
@@ -30,6 +35,17 @@
   <input type="number" id="billAmount" placeholder="e.g. 400" />
   <button onclick="calculatePanels()">Calculate</button>
   <div class="result" id="result"></div>
+  <canvas id="savingsChart"></canvas>
+
+  <!-- Installation Cost Input Section (hidden initially) -->
+  <div id="installationCostSection" style="display: none; margin-top: 20px;">
+    <p>Enter your estimated solar panel installation cost (MYR):</p>
+    <input type="number" id="installationCost" placeholder="e.g. 20000" />
+    <button onclick="updateChartWithInstallationCost()">Update Savings Chart</button>
+  </div>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <script>
     const tiers = [
@@ -72,10 +88,18 @@
       return { kWh, energyCharge, kwtbb, icpt, sst, total };
     }
 
+    let savingsChart; // Global Chart instance
+    let lastSavingsByYear = []; // Store the last calculated savings
+
     function calculatePanels() {
       const billAmount = parseFloat(document.getElementById("billAmount").value);
       if (isNaN(billAmount) || billAmount <= 0) {
         document.getElementById("result").innerHTML = "Please enter a valid bill amount.";
+        if (savingsChart) {
+          savingsChart.destroy();
+          savingsChart = null;
+        }
+        document.getElementById("installationCostSection").style.display = "none";
         return;
       }
 
@@ -91,6 +115,11 @@
 
       if (!closestEstimate || minDiff > 1) {
         document.getElementById("result").innerHTML = "Unable to estimate kWh for the given bill amount.";
+        if (savingsChart) {
+          savingsChart.destroy();
+          savingsChart = null;
+        }
+        document.getElementById("installationCostSection").style.display = "none";
         return;
       }
 
@@ -127,6 +156,7 @@
         <strong>Total Bill:</strong> RM ${totalEstimate.total.toFixed(2)}<br><br>
 
         <strong>Solar Panels to Install:</strong> ${solarPanels}<br>
+        <strong>System Size:</strong> ${(solarPanels * 0.62).toFixed(2)} kWp<br>
         <strong>Monthly Estimated Solar Generation:</strong> ${solarGen} kWh<br>
         <strong>Balance Usage (Total Usage - Solar Generation):</strong> ${balanceKWh} kWh<br><br>
 
@@ -139,34 +169,68 @@
         <strong><b>Bill Savings:</b></strong> RM ${savings.toFixed(2)}
       `;
 
-      // Calculate total savings over 10 years
       let year1 = savings * 12;
       let year2 = year1 * 0.99;
       let totalSavings = year1 + year2;
       let prevYear = year2;
+
+      const savingsByYear = [0, round2(year1), round2(year1 + year2)];
       for (let year = 3; year <= 10; year++) {
-        let currentYear = prevYear * 0.996;
-        totalSavings += currentYear;
-        prevYear = currentYear;
+        let nextYear = round2(prevYear * 0.996);
+        totalSavings += nextYear;
+        savingsByYear.push(round2(totalSavings));
+        prevYear = nextYear;
       }
-      totalSavings = round2(totalSavings);
 
-      output += `
-        <br><h3><u>Estimated Total Savings over 10 Years</u></h3>
-        <strong>Total 10-Year Savings:</strong> RM ${totalSavings.toFixed(2)}
-      `;
-
+      output += `<br><br><strong>Estimated 10-year Total Savings:</strong> RM ${totalSavings.toFixed(2)}`;
       document.getElementById("result").innerHTML = output;
-    }
-  </script>
 
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js')
-          .then(reg => console.log('Service Worker registered:', reg))
-          .catch(err => console.log('Service Worker registration failed:', err));
+      drawSavingsChart(savingsByYear);
+      lastSavingsByYear = savingsByYear; // Store for use in cost adjustment
+      document.getElementById("installationCostSection").style.display = "block";
+    }
+
+    function drawSavingsChart(savingsByYear) {
+      const ctx = document.getElementById("savingsChart").getContext("2d");
+      if (savingsChart) {
+        savingsChart.destroy();
+      }
+      savingsChart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: savingsByYear.map((_, i) => `Year ${i}`),
+          datasets: [{
+            label: "Accumulated Savings (RM)",
+            data: savingsByYear,
+            fill: true,
+            borderColor: "green",
+            backgroundColor: "rgba(0, 128, 0, 0.2)",
+            tension: 0.3,
+            pointRadius: 5,
+            pointHoverRadius: 7
+          }]
+        },
+        options: {
+          scales: {
+            x: { title: { display: true, text: "Year" } },
+            y: { title: { display: true, text: "RM (Malaysian Ringgit)" }, beginAtZero: true }
+          },
+          responsive: true,
+          plugins: { legend: { display: true } }
+        }
       });
+    }
+
+    function updateChartWithInstallationCost() {
+      const installationCost = parseFloat(document.getElementById("installationCost").value);
+      if (isNaN(installationCost) || installationCost <= 0) {
+        alert("Please enter a valid installation cost.");
+        return;
+      }
+
+      const savingsWithCost = lastSavingsByYear.map((val, idx) => idx === 0 ? -installationCost : val - installationCost);
+      savingsChart.data.datasets[0].data = savingsWithCost;
+      savingsChart.update();
     }
   </script>
 </body>
