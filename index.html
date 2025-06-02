@@ -26,6 +26,34 @@
       max-width: 100%;
       height: 300px;
     }
+    /* Styling for More Info button and section */
+    #moreInfoSection {
+      display: none;
+      margin-top: 10px;
+      padding: 15px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      background-color: #f9f9f9;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      opacity: 0;
+      transition: opacity 0.5s ease-in-out;
+    }
+    #moreInfoSection.show {
+      display: block;
+      opacity: 1;
+    }
+    .more-info-button {
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+      border-radius: 5px;
+      transition: background-color 0.3s;
+    }
+    .more-info-button:hover {
+      background-color: #0056b3;
+    }
   </style>
 </head>
 <body>
@@ -42,6 +70,17 @@
     <p>Enter your estimated solar panel installation cost (MYR):</p>
     <input type="number" id="installationCost" placeholder="e.g. 20000" />
     <button onclick="updateChartWithInstallationCost()">Update Savings Chart</button>
+  </div>
+
+  <!-- More Info Button and Section -->
+  <button class="more-info-button" onclick="toggleMoreInfo()">More Info</button>
+  <div id="moreInfoSection">
+    <ul>
+      <li>Each panel generate 620W</li>
+      <li>Assuming 3.4 sunlight hours daily</li>
+      <li>Based on 30-day month</li>
+      <li>For the balance bill, SST, ICPT, and KWTBB are calculated assuming 30% of usage occurs during daylight hours</li>
+    </ul>
   </div>
 
   <!-- Chart.js CDN -->
@@ -88,8 +127,8 @@
       return { kWh, energyCharge, kwtbb, icpt, sst, total };
     }
 
-    let savingsChart; // Global Chart instance
-    let lastSavingsByYear = []; // Store the last calculated savings
+    let savingsChart;
+    let lastSavingsByYear = [];
 
     function calculatePanels() {
       const billAmount = parseFloat(document.getElementById("billAmount").value);
@@ -186,7 +225,7 @@
       document.getElementById("result").innerHTML = output;
 
       drawSavingsChart(savingsByYear);
-      lastSavingsByYear = savingsByYear; // Store for use in cost adjustment
+      lastSavingsByYear = savingsByYear;
       document.getElementById("installationCostSection").style.display = "block";
     }
 
@@ -231,6 +270,11 @@
       const savingsWithCost = lastSavingsByYear.map((val, idx) => idx === 0 ? -installationCost : val - installationCost);
       savingsChart.data.datasets[0].data = savingsWithCost;
       savingsChart.update();
+    }
+
+    function toggleMoreInfo() {
+      const section = document.getElementById("moreInfoSection");
+      section.classList.toggle("show");
     }
   </script>
 </body>
