@@ -54,6 +54,24 @@
     .more-info-button:hover {
       background-color: #0056b3;
     }
+    /* New manual panel input styles */
+    #manualPanelSection {
+      margin-top: 20px;
+      padding: 15px;
+      border: 1px solid #007BFF;
+      border-radius: 8px;
+      background-color: #e7f1ff;
+    }
+    #manualPanelSection input {
+      width: 50%;
+      display: inline-block;
+      margin-right: 10px;
+    }
+    #manualPanelSection button {
+      width: auto;
+      padding: 10px 20px;
+      display: inline-block;
+    }
   </style>
 </head>
 <body>
@@ -70,6 +88,13 @@
     <p>Enter your estimated solar panel installation cost (MYR):</p>
     <input type="number" id="installationCost" placeholder="e.g. 20000" />
     <button onclick="updateChartWithInstallationCost()">Update Savings Chart</button>
+  </div>
+
+  <!-- Manual Solar Panel Quantity Input Section -->
+  <div id="manualPanelSection" style="display:none;">
+    <p>Or manually adjust the number of solar panels:</p>
+    <input type="number" id="manualPanels" min="1" />
+    <button onclick="recalculateWithManualPanels()">Submit</button>
   </div>
 
   <!-- More Info Button and Section -->
@@ -96,6 +121,13 @@
     ];
     const panelOutput = 0.62 * 3.4 * 30; // ~63.24 kWh/panel/month
     const round2 = num => Math.round(num * 100) / 100;
+
+    // Store last calculations for re-use
+    let lastBillAmount = 0;
+    let lastTotalEstimate = null;
+    let lastSolarPanels = 0;
+    let savingsChart;
+    let lastSavingsByYear = [];
 
     function calculateEnergyCharge(kWh) {
       let energyCharge = 0, temp = kWh;
@@ -127,9 +159,6 @@
       return { kWh, energyCharge, kwtbb, icpt, sst, total };
     }
 
-    let savingsChart;
-    let lastSavingsByYear = [];
-
     function calculatePanels() {
       const billAmount = parseFloat(document.getElementById("billAmount").value);
       if (isNaN(billAmount) || billAmount <= 0) {
@@ -139,8 +168,11 @@
           savingsChart = null;
         }
         document.getElementById("installationCostSection").style.display = "none";
+        document.getElementById("manualPanelSection").style.display = "none";
         return;
       }
+
+      lastBillAmount = billAmount; // store for manual recalculation
 
       let closestEstimate = null, minDiff = Infinity;
       for (let kWh = 0; kWh <= 5000; kWh++) {
@@ -159,12 +191,24 @@
           savingsChart = null;
         }
         document.getElementById("installationCostSection").style.display = "none";
+        document.getElementById("manualPanelSection").style.display = "none";
         return;
       }
 
-      const totalEstimate = closestEstimate;
-      const adjustedKWh = Math.max(totalEstimate.kWh - 150, 0);
+      lastTotalEstimate = closestEstimate; // store for manual recalculation
+
+      const adjustedKWh = Math.max(closestEstimate.kWh - 150, 0);
       const solarPanels = Math.max(6, Math.floor(adjustedKWh / panelOutput));
+      lastSolarPanels = solarPanels;
+
+      updateResultsAndChart(solarPanels);
+      document.getElementById("installationCostSection").style.display = "block";
+      document.getElementById("manualPanelSection").style.display = "block";
+      document.getElementById("manualPanels").value = solarPanels;
+    }
+
+    function updateResultsAndChart(solarPanels) {
+      const totalEstimate = lastTotalEstimate;
       const solarGen = Math.round(solarPanels * panelOutput);
       const balanceKWh = Math.max(totalEstimate.kWh - solarGen, 0);
       const seventyPctKWh = Math.round(totalEstimate.kWh * 0.7);
@@ -226,7 +270,6 @@
 
       drawSavingsChart(savingsByYear);
       lastSavingsByYear = savingsByYear;
-      document.getElementById("installationCostSection").style.display = "block";
     }
 
     function drawSavingsChart(savingsByYear) {
@@ -252,29 +295,65 @@
         options: {
           scales: {
             x: { title: { display: true, text: "Year" } },
-            y: { title: { display: true, text: "RM (Malaysian Ringgit)" }, beginAtZero: true }
+            y: { title: { display: true, text: "Savings (RM)" }, beginAtZero: true }
           },
-          responsive: true,
-          plugins: { legend: { display: true } }
+          plugins: {
+            legend: { display: true }
+          }
         }
       });
     }
 
+    // New function to update chart after entering installation cost
     function updateChartWithInstallationCost() {
       const installationCost = parseFloat(document.getElementById("installationCost").value);
       if (isNaN(installationCost) || installationCost <= 0) {
         alert("Please enter a valid installation cost.");
         return;
       }
+      if (!lastSavingsByYear || lastSavingsByYear.length === 0) {
+        alert("Please calculate solar panels first.");
+        return;
+      }
 
-      const savingsWithCost = lastSavingsByYear.map((val, idx) => idx === 0 ? -installationCost : val - installationCost);
-      savingsChart.data.datasets[0].data = savingsWithCost;
-      savingsChart.update();
+      // Subtract installation cost from all savings points to get net savings
+      const netSavings = lastSavingsByYear.map(saving => saving - installationCost);
+      drawSavingsChart(netSavings);
+
+      // Show net savings summary
+      const netSavings10Years = netSavings[netSavings.length - 1];
+      const netSavingsDisplay = netSavings10Years >= 0 ? 
+        `<span style="color:green;">RM ${netSavings10Years.toFixed(2)}</span>` : 
+        `<span style="color:red;">RM ${netSavings10Years.toFixed(2)}</span>`;
+
+      document.getElementById("result").innerHTML += `<br><br><strong>Estimated 10-year Net Savings (after installation cost):</strong> ${netSavingsDisplay}`;
+    }
+
+    // New function to handle manual panel input and recalculate savings
+    function recalculateWithManualPanels() {
+      const manualPanels = parseInt(document.getElementById("manualPanels").value);
+      if (isNaN(manualPanels) || manualPanels < 1) {
+        alert("Please enter a valid number of solar panels (minimum 1).");
+        return;
+      }
+
+      lastSolarPanels = manualPanels;
+
+      // Recalculate using lastTotalEstimate with manual panels
+      updateResultsAndChart(manualPanels);
+
+      // Clear installation cost input & chart (need to update installation cost again)
+      document.getElementById("installationCost").value = "";
+      document.getElementById("installationCostSection").style.display = "block";
     }
 
     function toggleMoreInfo() {
-      const section = document.getElementById("moreInfoSection");
-      section.classList.toggle("show");
+      const moreInfo = document.getElementById("moreInfoSection");
+      if (moreInfo.classList.contains("show")) {
+        moreInfo.classList.remove("show");
+      } else {
+        moreInfo.classList.add("show");
+      }
     }
   </script>
 </body>
