@@ -124,7 +124,7 @@
       }
 
       const totalEstimate = closestEstimate;
-      const adjustedKWh = Math.max(totalEstimate.kWh - 200, 0);
+      const adjustedKWh = Math.max(totalEstimate.kWh - 150, 0);
       const solarPanels = Math.max(6, Math.floor(adjustedKWh / panelOutput));
       const solarGen = Math.round(solarPanels * panelOutput);
       const balanceKWh = Math.max(totalEstimate.kWh - solarGen, 0);
