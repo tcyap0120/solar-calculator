@@ -305,29 +305,50 @@
     }
 
     // New function to update chart after entering installation cost
-    function updateChartWithInstallationCost() {
-      const installationCost = parseFloat(document.getElementById("installationCost").value);
-      if (isNaN(installationCost) || installationCost <= 0) {
-        alert("Please enter a valid installation cost.");
-        return;
-      }
-      if (!lastSavingsByYear || lastSavingsByYear.length === 0) {
-        alert("Please calculate solar panels first.");
-        return;
-      }
+function updateChartWithInstallationCost() {
+  const installationCost = parseFloat(document.getElementById("installationCost").value);
+  if (isNaN(installationCost) || installationCost <= 0) {
+    alert("Please enter a valid installation cost.");
+    return;
+  }
+  if (!lastSavingsByYear || lastSavingsByYear.length === 0) {
+    alert("Please calculate solar panels first.");
+    return;
+  }
 
-      // Subtract installation cost from all savings points to get net savings
-      const netSavings = lastSavingsByYear.map(saving => saving - installationCost);
-      drawSavingsChart(netSavings);
+  lastInstallationCost = installationCost;
 
-      // Show net savings summary
-      const netSavings10Years = netSavings[netSavings.length - 1];
-      const netSavingsDisplay = netSavings10Years >= 0 ? 
-        `<span style="color:green;">RM ${netSavings10Years.toFixed(2)}</span>` : 
-        `<span style="color:red;">RM ${netSavings10Years.toFixed(2)}</span>`;
+  // Net savings = savings - installation cost
+  const netSavings = lastSavingsByYear.map(saving => saving - installationCost);
+  drawSavingsChart(netSavings);
 
-      document.getElementById("result").innerHTML += `<br><br><strong>Estimated 10-year Net Savings (after installation cost):</strong> ${netSavingsDisplay}`;
+  // Net savings at year 10
+  const netSavings10Years = netSavings[netSavings.length - 1];
+  const netSavingsDisplay = netSavings10Years >= 0 ? 
+    `<span style="color:green;">RM ${netSavings10Years.toFixed(2)}</span>` : 
+    `<span style="color:red;">RM ${netSavings10Years.toFixed(2)}</span>`;
+
+  // Calculate payback period with decimal precision
+  let paybackPeriod = null;
+
+  for (let i = 1; i < netSavings.length; i++) {
+    if (netSavings[i] >= 0) {
+      // Interpolate between year i-1 and i
+      const y0 = netSavings[i - 1];
+      const y1 = netSavings[i];
+      const fraction = y1 / (y1 - y0);  // fraction of year between i-1 and i
+      paybackPeriod = (i - 1) + fraction;
+      break;
     }
+  }
+
+  let paybackText = paybackPeriod !== null 
+    ? `<strong>Estimated Payback Period:</strong> Approximately ${paybackPeriod.toFixed(1)} year(s)`
+    : `<strong>Estimated Payback Period:</strong> More than 10 years or not achieved within 10 years`;
+
+  document.getElementById("result").innerHTML += `<br><br><strong>Estimated 10-year Net Savings (after installation cost):</strong> ${netSavingsDisplay}<br>${paybackText}`;
+}
+
 
     // New function to handle manual panel input and recalculate savings
     function recalculateWithManualPanels() {
