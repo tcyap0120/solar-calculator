@@ -1,10 +1,11 @@
 const CACHE_NAME = 'solar-panel-cache-v1';
 const FILES_TO_CACHE = [
-  '/',
-  '/index.html',  // your HTML file
-  '/manifest.json',
-  '/sw.js',
-  // Add your CSS and JS files here if external
+  '/solar-calculator/',
+  '/solar-calculator/index.html',
+  '/solar-calculator/manifest.json',
+  '/solar-calculator/style.css',
+  '/solar-calculator/script.js',
+  '/solar-calculator/icon.png'
 ];
 
 // Install Service Worker and cache files
@@ -35,7 +36,7 @@ self.addEventListener('activate', evt => {
 self.addEventListener('fetch', evt => {
   evt.respondWith(
     caches.match(evt.request).then(response => {
-      return response || fetch(evt.request);
+      return response || fetch(evt.request));
     })
   );
 });
