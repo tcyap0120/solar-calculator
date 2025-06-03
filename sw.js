@@ -3,40 +3,38 @@ const FILES_TO_CACHE = [
   '/solar-calculator/',
   '/solar-calculator/index.html',
   '/solar-calculator/manifest.json',
-  '/solar-calculator/style.css',
-  '/solar-calculator/script.js',
-  '/solar-calculator/icon.png'
+  '/solar-calculator/solarlogo.png'
 ];
 
-// Install Service Worker and cache files
-self.addEventListener('install', evt => {
-  evt.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(FILES_TO_CACHE);
-    })
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(cache => {
+        return cache.addAll(FILES_TO_CACHE);
+      })
+      .catch(error => {
+        console.error('Failed to cache:', error);
+      })
   );
   self.skipWaiting();
 });
 
-// Activate Service Worker and clean old caches
-self.addEventListener('activate', evt => {
-  evt.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(keys => {
+      return Promise.all(
         keys.map(key => {
           if (key !== CACHE_NAME) return caches.delete(key);
         })
-      )
-    )
+      );
+    })
   );
   self.clients.claim();
 });
 
-// Intercept fetch requests and serve from cache if offline
-self.addEventListener('fetch', evt => {
-  evt.respondWith(
-    caches.match(evt.request).then(response => {
-      return response || fetch(evt.request));
-    })
+self.addEventListener('fetch', event => {
+  event.respondWith(
+    caches.match(event.request)
+      .then(response => response || fetch(event.request))
   );
 });
